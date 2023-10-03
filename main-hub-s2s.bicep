@@ -157,6 +157,7 @@ resource hubbastion 'Microsoft.Network/bastionHosts@2022-09-01' = [for i in [0,c
   }
 }]
 
+
 resource bastionpip 'Microsoft.Network/publicIPAddresses@2022-09-01' = [for i in [0,copies/2]: {
   name: 'hubbastionpip-${i}'
   location: location
@@ -337,6 +338,24 @@ resource vm 'Microsoft.Compute/virtualMachines@2018-10-01' = [for i in [0,1,2,co
     nic
   ]
 }]
+
+resource autoshut 'Microsoft.DevTestLab/schedules@2018-09-15' = [for i in [0,1,2,copies/2,(copies/2)+1,(copies/2+2)]: {
+  name: '${vmName}${i}-autoshut'
+  location: location
+  properties: {
+    status: 'Enabled'
+    taskType: 'ComputeVmShutdownTask'
+    dailyRecurrence: {
+      time: '17:00'
+    }
+    timeZoneId: 'W. Europe Standard Time'
+    targetResourceId: vm[i].id
+  }
+  dependsOn: [
+    vm
+  ]
+}]
+
 
 resource vmName_Microsoft_Azure_NetworkWatcher 'Microsoft.Compute/virtualMachines/extensions@2021-04-01' = [for i in [0,1,2,copies/2,(copies/2+1),(copies/2+2)]: {
   name: '${vmName}${i}/Microsoft.Azure.NetworkWatcher'
