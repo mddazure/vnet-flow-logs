@@ -340,7 +340,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2018-10-01' = [for i in [0,1,2,co
 }]
 
 resource autoshut 'Microsoft.DevTestLab/schedules@2018-09-15' = [for i in [0,1,2,copies/2,(copies/2)+1,(copies/2+2)]: {
-  name: '${vmName}${i}-autoshut'
+  name: 'shutdown-computevm-${vmName}${i}'
   location: location
   properties: {
     status: 'Enabled'
