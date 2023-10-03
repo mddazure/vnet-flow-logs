@@ -349,7 +349,7 @@ resource autoshut 'Microsoft.DevTestLab/schedules@2018-09-15' = [for i in [0,1,2
       time: '17:00'
     }
     timeZoneId: 'W. Europe Standard Time'
-    targetResourceId: vm[i].id
+    targetResourceId: resourceId('Microsoft.Compute/virtualMachines','${vmName}${i}')
   }
   dependsOn: [
     vm
