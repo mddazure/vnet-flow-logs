@@ -43,4 +43,4 @@ Create a new resource group:
 
 Deploy the bicep template:
 
-`az deployment group create -g {rgname} --template-file /main-hub-s2s.bicep`
+`az deployment group create -g {rgname} --template-file ./main-hub-s2s.bicep`

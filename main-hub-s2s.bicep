@@ -5,7 +5,7 @@ param adminUsername string = 'AzureAdmin'
 param adminPassword string = 'flowtest-2023'
 
 @description('Location for all resources.')
-param location string = 'useast'
+param location string = 'eastus'
 
 @description('Number of VNETs and VMs to deploy')
 @minValue(1)
