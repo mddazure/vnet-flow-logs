@@ -90,8 +90,36 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2019-09-01' = [for i 
         }
       }
     ]
+    virtualNetworkPeerings: [
+      {
+        name: 'lowhigh'
+        properties: {
+          allowVirtualNetworkAccess: true
+          allowForwardedTraffic: true
+          allowGatewayTransit: false
+          useRemoteGateways: false
+          remoteVirtualNetwork: {
+            id: resourceId(rgName, 'Microsoft.Network/virtualNetworks', '${virtualNetworkName}${(i<copies/2 ? (copies/2) : 0)}')
+          }
+        }
+      }
+      {
+        name: 'highlow'
+        properties: {
+          allowVirtualNetworkAccess: true
+          allowForwardedTraffic: true
+          allowGatewayTransit: false
+          useRemoteGateways: false
+          remoteVirtualNetwork: {
+            id: resourceId(rgName, 'Microsoft.Network/virtualNetworks', '${virtualNetworkName}${(i<copies/2 ? 0 : (copies/2))}')
+          }
+        }
+      }
+    ]
   }
 }]
+
+
 resource flownsg 'Microsoft.Network/networkSecurityGroups@2022-09-01' = {
   name: 'anvm-nsg'
   location: location
