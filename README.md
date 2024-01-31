@@ -23,24 +23,36 @@ Log in to Azure Cloud Shell at https://shell.azure.com/ and select Bash.
 
 Ensure Azure CLI and extensions are up to date:
   
-`az upgrade --yes`
+```
+az upgrade --yes
+```
   
 If necessary select your target subscription:
   
-`az account set --subscription <Name or ID of subscription>`
+```
+az account set --subscription <Name or ID of subscription>
+```
   
 Clone the  GitHub repository:
 
-`git clone https://github.com/mddazure/vnet-flow-logs`
+```
+git clone https://github.com/mddazure/vnet-flow-logs
+```
 
 Change directory:
 
-`cd ./vnet-flow-logs`
+```
+cd ./vnet-flow-logs
+```
 
 Create a new resource group:
 
-`az group create --name {rgname} --location eastus`
+```
+az group create --name {rgname} --location eastus
+```
 
 Deploy the bicep template:
 
-`az deployment group create -g {rgname} --template-file ./main-hub-s2s.bicep`
+```
+az deployment group create -g {rgname} --template-file ./main-hub-s2s.bicep
+```
