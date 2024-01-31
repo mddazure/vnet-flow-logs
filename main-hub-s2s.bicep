@@ -10,7 +10,7 @@ param location string = 'eastus'
 @description('Number of VNETs and VMs to deploy')
 @minValue(1)
 @maxValue(254)
-param copies int = 20
+param copies int = 10
 
 param vmsize string = 'Standard_D2s_v5'
 
@@ -37,7 +37,13 @@ param nicName string = 'VMNic-'
 param vmName string = 'VM-'
 
 @description('Flow log storage account name')
-param flowlogSt string = 'flowlog${toLower(utcNow())}'
+param flowlogSt_name string = 'flowlog${resourceGroup().name}'
+
+@description('Flow log name')
+param flowlog_name string = 'flowlog'
+
+@description('Network watcher name')
+param networkwatcher_name string = 'NetworkWatcher_${location}'
 
 //var customImageId = '/subscriptions/0245be41-c89b-4b46-a3cc-a705c90cd1e8/resourceGroups/image-gallery-rg/providers/Microsoft.Compute/galleries/mddimagegallery/images/windows2019-networktools/versions/2.0.0'
 
@@ -148,7 +154,7 @@ resource flownsg 'Microsoft.Network/networkSecurityGroups@2022-09-01' = {
   }
 }
 resource flowlogst 'Microsoft.Storage/storageAccounts@2022-09-01' = {
-  name: flowlogSt
+  name: flowlogSt_name
   location: location
   sku: {
     name: 'Standard_LRS'
@@ -157,8 +163,8 @@ resource flowlogst 'Microsoft.Storage/storageAccounts@2022-09-01' = {
 }
 
 
-resource hubbastion 'Microsoft.Network/bastionHosts@2022-09-01' = [for i in [0,copies/2]: {
-  name: 'hubbastion-${i}'
+resource hubbastion 'Microsoft.Network/bastionHosts@2022-09-01' =  {
+  name: 'hubbastion-0'
   dependsOn:[
     bastionpip
     virtualNetwork
@@ -175,20 +181,20 @@ resource hubbastion 'Microsoft.Network/bastionHosts@2022-09-01' = [for i in [0,c
         name: 'ipConf'
         properties: {
           publicIPAddress: {
-            id: bastionpip[((i<copies/2 ? 0 : 1))].id
+            id: bastionpip.id
           }
           subnet: {
-            id: resourceId(rgName, 'Microsoft.Network/virtualNetworks/subnets', 'flow-vnet-${i}', bastionsubnetName)
+            id: resourceId(rgName, 'Microsoft.Network/virtualNetworks/subnets', 'flow-vnet-0', bastionsubnetName)
           }
         }
       }
     ]
   }
-}]
+}
 
 
-resource bastionpip 'Microsoft.Network/publicIPAddresses@2022-09-01' = [for i in [0,copies/2]: {
-  name: 'hubbastionpip-${i}'
+resource bastionpip 'Microsoft.Network/publicIPAddresses@2022-09-01' =  {
+  name: 'hubbastionpip'
   location: location
   sku: {
     name: 'Standard'
@@ -201,7 +207,7 @@ resource bastionpip 'Microsoft.Network/publicIPAddresses@2022-09-01' = [for i in
   properties: {
     publicIPAllocationMethod: 'Static'
   }
-}]
+}
 
 resource hubgw 'Microsoft.Network/virtualNetworkGateways@2022-09-01' = [for i in [0,copies/2]:{
   name: 'hubgw-${i}'
@@ -419,5 +425,42 @@ resource vmName_IISExtension 'Microsoft.Compute/virtualMachines/extensions@2021-
    ]
 }]
 
+resource networkwatcher 'Microsoft.Network/networkWatchers@2022-09-01' = {
+  name: networkwatcher_name
+  location: location
+  properties: {
+  }
+}
+
+resource vnetflow 'Microsoft.Network/networkWatchers/flowLogs@2023-05-01' = [for i in range(0, copies):{
+  name: 'vnetflow${i}'
+  location: location
+  parent: networkwatcher
+  properties: {
+    targetResourceId: resourceId(rgName, 'Microsoft.Network/virtualNetworks', '${virtualNetworkName}${i}')
+    storageId: resourceId(rgName, 'Microsoft.Storage/storageAccounts', flowlogSt_name)
+    enabled: true
+    retentionPolicy: {
+      enabled: true
+      days: 7
+    }
+    format: {
+      type: 'JSON'
+    }
+    flowAnalyticsConfiguration: {
+      publicNetwork: {
+        enabled: true
+        intervalInSeconds: 60
+        samplingRatePercentage: 100
+      }
+      privateNetwork: {
+        enabled: true
+        intervalInSeconds: 60
+        samplingRatePercentage: 100
+      }
+    }
+  }
+}
+]
 
 
