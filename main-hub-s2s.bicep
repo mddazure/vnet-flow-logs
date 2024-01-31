@@ -425,11 +425,8 @@ resource vmName_IISExtension 'Microsoft.Compute/virtualMachines/extensions@2021-
    ]
 }]
 
-resource networkwatcher 'Microsoft.Network/networkWatchers@2022-09-01' = {
+resource networkwatcher 'Microsoft.Network/networkWatchers@2022-09-01' existing = {
   name: networkwatcher_name
-  location: location
-  properties: {
-  }
 }
 
 resource vnetflow 'Microsoft.Network/networkWatchers/flowLogs@2023-05-01' = [for i in range(0, copies):{
