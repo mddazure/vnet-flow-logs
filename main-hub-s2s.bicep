@@ -5,7 +5,7 @@ param adminUsername string = 'AzureAdmin'
 param adminPassword string = 'flowtest-2023'
 
 @description('Location for all resources.')
-param location string = 'eastus'
+param location string = resourceGroup().location
 
 @description('Number of VNETs and VMs to deploy')
 @minValue(1)
@@ -306,158 +306,49 @@ resource hubgwpubip 'Microsoft.Network/publicIPAddresses@2022-09-01' = [for i in
   }
 }]
 
-resource nic 'Microsoft.Network/networkInterfaces@2019-09-01' = [for i in [0,1,2,copies/2,(copies/2)+1,(copies/2+2)]: {
-  name: '${nicName}${i}'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig1'
-        properties: {
-          subnet: {
-            id: resourceId(rgName, 'Microsoft.Network/virtualNetworks/subnets', '${virtualNetworkName}${i}', subnetName)
-          }
-          privateIPAllocationMethod: 'Dynamic'
-        }
-      }
-    ]
+module vm 'vm.bicep' = [for i in range(0, copies): {
+  name: 'vm${i}'
+  params: {
+    adminUsername: adminUsername
+    adminPassword: adminPassword
+    location: location
+    vmsize: vmsize
+    virtualNetworkName: virtualNetworkName
+    subnetName: subnetName
+    nicName: nicName
+    vmName: vmName
+    rgName: rgName
+    i: i
+    imagePublisher: imagePublisher
+    imageOffer: imageOffer
+    imageSku: imageSku
   }
   dependsOn: [
+    flownsg
+    flowlogst
     virtualNetwork
   ]
 }]
 
-
-resource vm 'Microsoft.Compute/virtualMachines@2018-10-01' = [for i in [0,1,2,copies/2,(copies/2)+1,(copies/2+2)]: {
-  name: '${vmName}${i}'
-  location: location
-  tags:{
-    group: (i<copies/2 ? virtualNetworkTagGr1 : virtualNetworkTagGr2)
-  }
-  properties: {
-    hardwareProfile: {
-      vmSize: vmsize
-    }
-    osProfile: {
-      computerName: '${vmName}${i}'
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-    }
-    storageProfile: {
-      imageReference: {
-        //id: customImageId
-        publisher: imagePublisher
-        offer: imageOffer
-        sku: imageSku
-        version: 'latest'
-      }
-      osDisk: {
-        name: 'osDisk-${vmName}${i}'
-        createOption: 'FromImage'
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        {
-          id: resourceId('Microsoft.Network/networkInterfaces', '${nicName}${i}')
-        }
-      ]
-    }
-    diagnosticsProfile: {
-      bootDiagnostics: {
-        enabled: false
-      }
-    }
+module flowlog 'flowlog.bicep' = {
+  name: 'flowlog'
+  scope: resourceGroup('NetworkWatcherRG')
+  params: {
+    flowlogSt_name: flowlogSt_name
+    networkwatcher_name: networkwatcher_name
+    location: location
+    sourceIPaddressRDP: sourceIPaddressRDP
+    rgName: rgName
+    virtualNetworkName: virtualNetworkName
+    subnetName: subnetName
+    copies: copies
   }
   dependsOn: [
-    nic
+    flownsg
+    flowlogst
+    virtualNetwork
   ]
-}]
-
-resource autoshut 'Microsoft.DevTestLab/schedules@2018-09-15' = [for i in [0,1,2,copies/2,(copies/2)+1,(copies/2+2)]: {
-  name: 'shutdown-computevm-${vmName}${i}'
-  location: location
-  properties: {
-    status: 'Enabled'
-    taskType: 'ComputeVmShutdownTask'
-    dailyRecurrence: {
-      time: '17:00'
-    }
-    timeZoneId: 'W. Europe Standard Time'
-    targetResourceId: resourceId('Microsoft.Compute/virtualMachines','${vmName}${i}')
-  }
-  dependsOn: [
-    vm
-  ]
-}]
-
-
-resource vmName_Microsoft_Azure_NetworkWatcher 'Microsoft.Compute/virtualMachines/extensions@2021-04-01' = [for i in [0,1,2,copies/2,(copies/2+1),(copies/2+2)]: {
-  name: '${vmName}${i}/Microsoft.Azure.NetworkWatcher'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Azure.NetworkWatcher'
-    type: 'NetworkWatcherAgentWindows'
-    typeHandlerVersion: '1.4'
-    autoUpgradeMinorVersion: true
-  }
-  dependsOn: [
-    vm
-  ]
-}]
-
-resource vmName_IISExtension 'Microsoft.Compute/virtualMachines/extensions@2021-04-01' = [for i in [0,1,2,copies/2,(copies/2+1),(copies/2+2)]: {
-  name: '${vmName}${i}/IISExtension'
-  location: location
-  properties: {
-    autoUpgradeMinorVersion: true
-    publisher: 'Microsoft.Compute'
-    type: 'CustomScriptExtension'
-    typeHandlerVersion: '1.9'
-    settings: {
-      commandToExecute: 'powershell -ExecutionPolicy Unrestricted Add-WindowsFeature Web-Server; powershell -ExecutionPolicy Unrestricted Add-Content -Path "C:\\inetpub\\wwwroot\\Default.htm" -Value $($env:computername)'
-    }
-    protectedSettings: {
-    }
-  }
-  dependsOn: [
-    vm
-   ]
-}]
-
-resource networkwatcher 'Microsoft.Network/networkWatchers@2022-09-01' existing = {
-  name: networkwatcher_name
 }
 
-resource vnetflow 'Microsoft.Network/networkWatchers/flowLogs@2023-05-01' = [for i in range(0, copies):{
-  name: 'vnetflow${i}'
-  location: location
-  parent: networkwatcher
-  properties: {
-    targetResourceId: resourceId(rgName, 'Microsoft.Network/virtualNetworks', '${virtualNetworkName}${i}')
-    storageId: resourceId(rgName, 'Microsoft.Storage/storageAccounts', flowlogSt_name)
-    enabled: true
-    retentionPolicy: {
-      enabled: true
-      days: 7
-    }
-    format: {
-      type: 'JSON'
-    }
-    flowAnalyticsConfiguration: {
-      publicNetwork: {
-        enabled: true
-        intervalInSeconds: 60
-        samplingRatePercentage: 100
-      }
-      privateNetwork: {
-        enabled: true
-        intervalInSeconds: 60
-        samplingRatePercentage: 100
-      }
-    }
-  }
-}
-]
 
 
